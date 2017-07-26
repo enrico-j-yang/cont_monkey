@@ -1,0 +1,6 @@
+com.android.settings
+com.android.mms
+com.android.contacts
+com.android.keyguard
+com.texchi.car.factorytest
+com.texchi.car.pbatest
