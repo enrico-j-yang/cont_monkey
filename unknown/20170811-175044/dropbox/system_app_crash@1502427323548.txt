@@ -1,0 +1,19 @@
+XOS SN :0123456789 
+Process: com.texchi.car.setting
+Flags: 0x40c8be45
+Package: com.texchi.car.setting v582 (0.2.11(790810c))
+Build: GEXNE/rkpx2/rkpx2:4.4.2/CE1607/eng..20170516.075605:eng/test-keys
+
+java.lang.NullPointerException
+	at java.util.ComparableTimSort.countRunAndMakeAscending(ComparableTimSort.java:291)
+	at java.util.ComparableTimSort.sort(ComparableTimSort.java:153)
+	at java.util.ComparableTimSort.sort(ComparableTimSort.java:142)
+	at java.util.Arrays.sort(Arrays.java:1970)
+	at java.util.Collections.sort(Collections.java:1864)
+	at com.texchi.car.setting.brightness.TFTFilter.filterLux(TFTFilter.java:36)
+	at com.texchi.car.setting.brightness.TFTFilter.filterCalculate(TFTFilter.java:25)
+	at com.texchi.car.setting.brightness.BrightControlImpl$1.run(BrightControlImpl.java:65)
+	at android.os.Handler.handleCallback(Handler.java:733)
+	at android.os.Handler.dispatchMessage(Handler.java:95)
+	at android.os.Looper.loop(Looper.java:136)
+	at android.os.HandlerThread.run(HandlerThread.java:61)

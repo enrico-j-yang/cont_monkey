@@ -1,5 +1,10 @@
 import datetime
 import os
+import zipfile
+import shutil
+import time
+import subprocess
+import re
 from optparse import OptionParser
 
 
@@ -35,6 +40,49 @@ def unknown_cat():
 def anr_cat(error_info):
     print("*****error cause:ANR*****")
 
+    error_module = error_info
+    error_pos = None
+
+    log_file = open("monkey_log_" + date_time + ".txt")
+    for line in log_file:
+        if not line.find('ANR') == -1:
+            # print line.find('seed=')
+            error_pos = line[line.find('/') + len('/'):line.find(')')]
+            error_module = line[line.find('in ') + len('in '):line.find(' (')]
+            break
+    log_file.close()
+    if 'error_pos' in dir():
+        print('error cause:ANR')
+
+        print('error position:' + error_pos)
+        try:
+            os.makedirs("ANR")
+        except OSError:
+            print("ANR exists")
+
+        os.chdir("ANR")
+        try:
+            os.makedirs(error_module)
+        except OSError:
+            print(error_module + " exists")
+
+        os.chdir(error_module)
+        try:
+            os.makedirs(error_pos)
+        except OSError:
+            print(error_pos + " exists")
+
+        os.chdir(error_pos)
+        try:
+            os.makedirs(date_time)
+        except OSError:
+            print(date_time + " exists")
+
+        os.chdir("..")
+        os.chdir("..")
+        os.chdir("..")
+    return "ANR/" + error_module + "/" + error_pos + "/" + date_time + "/"
+
 
 def crash_cat(error_info):
     print("*****error cause:CRASH*****")
@@ -50,7 +98,7 @@ def crash_cat(error_info):
             break
     log_file.close()
 
-    if 'errorPos' in dir():
+    if 'error_pos' in dir():
         print('error cause:CRASH')
 
         print('error position:' + error_pos)
@@ -90,11 +138,14 @@ def move_monkey_log(log_path):
 
     file_size = os.path.getsize("monkey_log_" + date_time + ".txt")
     if file_size > 10 * 1024 * 1024:
-        os.popen("zip monkey_log_" + date_time + ".zip monkey_log_" + date_time + ".txt")
-        os.popen("mv monkey_log_" + date_time + ".zip " + log_path)
-        os.popen("rm monkey_log_" + date_time + ".txt")
+        # os.popen("zip monkey_log_" + date_time + ".zip monkey_log_" + date_time + ".txt")
+        f = zipfile.ZipFile("monkey_log_" + date_time + ".zip", 'w', zipfile.ZIP_DEFLATED)
+        f.write("monkey_log_" + date_time + ".txt")
+        f.close()
+        shutil.move("monkey_log_" + date_time + ".zip", log_path)
+        os.remove("monkey_log_" + date_time + ".txt")
     else:
-        os.popen("mv monkey_log_" + date_time + ".txt " + log_path)
+        shutil.move("monkey_log_" + date_time + ".txt", log_path)
 
 
 def pull_log_and_move(log_path):
@@ -107,32 +158,53 @@ def pull_log_and_move(log_path):
     except OSError:
         print("log exists")
 
-    os.popen("cp -f *_anr* *_crash* log/")
-    os.popen("rm *@*")
-    os.popen("cp -f log/* .")
-    os.popen("rm -rf log")
-    os.popen("cd -")
-    os.popen(adb_device + " pull /data/tombstones/ " + log_path)
-    os.popen(adb_device + " shell rm -f /data/tombstones/*")
-    os.popen(adb_device + " shell rm -f /data/system/dropbox/*")
-    os.popen(adb_device + " shell /system/bin/screencap -p /sdcard/screenshot.png")
-    os.popen(adb_device + " pull /sdcard/screenshot.png " + log_path)
+    #os.popen("cp -f *_anr* *_crash* log/")
+    for root, dirs,files in os.walk("dropbox"):
+        for file in files:
+            matchObj = re.search(r'_crash', file, re.M | re.I)
+            matchObj1 = re.search(r'_anr', file, re.M | re.I)
+            if matchObj or matchObj1:
+                print(file)
+                shutil.move(file, log_path+"log")
+            #os.popen("rm *@*")
+        os.remove("*@*")
+        #os.popen("cp -f log/* .")
+        shutil.copy("log/*", log_path)
+        #os.popen("rm -rf log")
+        shutil.rmtree("log")
+        os.popen("cd -")
+        os.popen(adb_device + " pull /data/tombstones/ " + log_path)
+        os.popen(adb_device + " shell rm -f /data/tombstones/*")
+        os.popen(adb_device + " shell rm -f /data/system/dropbox/*")
+        os.popen(adb_device + " shell /system/bin/screencap -p /sdcard/screenshot.png")
+        os.popen(adb_device + " pull /sdcard/screenshot.png " + log_path)
 
     file_size = os.path.getsize("main_log_" + date_time + ".txt")
     if file_size > 10 * 1024 * 1024:
-        os.popen("zip main_log_" + date_time + ".zip main_log_" + date_time + ".txt")
-        os.popen("mv main_log_" + date_time + ".zip " + log_path)
-        os.popen("rm main_log_" + date_time + ".txt")
+        # os.popen("zip main_log_" + date_time + ".zip main_log_" + date_time + ".txt")
+        f = zipfile.ZipFile("main_log_" + date_time + ".zip", 'w', zipfile.ZIP_DEFLATED)
+        f.write("main_log_" + date_time + ".txt")
+        f.close()
+        # os.popen("mv main_log_" + date_time + ".zip " + log_path)
+        shutil.move("main_log_" + date_time + ".zip", log_path)
+        # os.popen("rm main_log_" + date_time + ".txt")
+        os.remove("main_log_" + date_time + ".txt")
     else:
-        os.popen("mv main_log_" + date_time + ".txt " + logPath)
+        shutil.move("main_log_" + date_time + ".txt", log_path)
 
     file_size = os.path.getsize("event_log_" + date_time + ".txt")
     if file_size > 10 * 1024 * 1024:
-        os.popen("zip event_log_" + date_time + ".zip event_log_" + date_time + ".txt")
-        os.popen("mv event_log_" + date_time + ".zip " + logPath)
-        os.popen("rm event_log_" + date_time + ".txt")
+        # os.popen("zip event_log_" + date_time + ".zip event_log_" + date_time + ".txt")
+        f = zipfile.ZipFile("event_log_" + date_time + ".zip", 'w', zipfile.ZIP_DEFLATED)
+        f.write("event_log_" + date_time + ".txt")
+        f.close()
+        # os.popen("mv event_log_" + date_time + ".zip " + log_path)
+        shutil.move("event_log_" + date_time + ".zip", log_path)
+        # os.popen("rm event_log_" + date_time + ".txt")
+        os.remove("event_log_" + date_time + ".txt")
     else:
-        os.popen("mv event_log_" + date_time + ".txt " + logPath)
+        # os.popen("mv event_log_" + date_time + ".txt " + log_path)
+        shutil.move("event_log_" + date_time + ".txt", log_path)
 
 
 def dump_state_and_move(log_path):
@@ -140,11 +212,17 @@ def dump_state_and_move(log_path):
 
     file_size = os.path.getsize("dumpstate_" + date_time + ".txt")
     if file_size > 10 * 1024 * 1024:
-        os.popen("zip dumpstate_" + date_time + ".zip dumpstate_" + date_time + ".txt")
-        os.popen("mv dumpstate_" + date_time + ".zip " + log_path)
-        os.popen("rm dumpstate_" + date_time + ".txt")
+        # os.popen("zip dumpstate_" + date_time + ".zip dumpstate_" + date_time + ".txt")
+        f = zipfile.ZipFile("dumpstate_" + date_time + ".zip", 'w', zipfile.ZIP_DEFLATED)
+        f.write("dumpstate_" + date_time + ".txt")
+        f.close()
+        # os.popen("mv dumpstate_" + date_time + ".zip " + log_path)
+        shutil.move("dumpstate_" + date_time + ".zip", log_path)
+        # os.popen("rm dumpstate_" + date_time + ".txt")
+        os.remove("dumpstate_" + date_time + ".txt")
     else:
-        os.popen("mv dumpstate_" + date_time + ".txt " + log_path)
+        # os.popen("mv dumpstate_" + date_time + ".txt " + log_path)
+        shutil.move("dumpstate_" + date_time + ".txt", log_path)
 
 
 if __name__ == "__main__":
@@ -152,7 +230,7 @@ if __name__ == "__main__":
     device_sn = '0123456789'
     adb_device = "adb"
     run_time = 1
-    event_executed = 0
+    event_executed =0
 
     parser = OptionParser(usage="usage:%prog [optinos]\
     script will run 1 time if no arg found")
@@ -241,21 +319,25 @@ if __name__ == "__main__":
         for line in log_file:
             if not line.find('ANR in') == -1:
                 error_info = line[line.find('ANR in') + len('ANR in'):len(line)]
+                print(error_info)
+                log_file.close()
                 log_path = anr_cat(error_info)
+                # log_file.close()
                 move_monkey_log(log_path)
+                break
 
             if not line.find('CRASH:') == -1:
                 error_info = line[line.find('CRASH: ') + len('CRASH: '):line.find(' (')]
                 print(error_info)
-
+                log_file.close()
                 log_path = crash_cat(error_info)
                 print(log_path)
-
+                # log_file.close()
                 move_monkey_log(log_path)
-        log_file.close()
+                break
 
         if 'error_info' not in dir():
-            logPath = normal_cat()
+            log_path = normal_cat()
             move_monkey_log(log_path)
 
     else:
@@ -293,29 +375,51 @@ if __name__ == "__main__":
             date_time = now.strftime("%Y%m%d-%H%M%S")
             print("dateTime:" + date_time)
 
-            os.popen("nohup " + adb_device + " logcat *:W > main_log_" + date_time + ".txt &")
-            os.popen("nohup " + adb_device + " logcat -b events -v time > event_log_" + date_time + ".txt &")
+            #os.popen("start cmd /c \"" + adb_device + " logcat *:W > main_log_" + date_time + ".txt\"")
+            m = subprocess.Popen(["adb logcat *:W>main_log_"+ date_time +".txt"], shell=True)
+            e=subprocess.Popen(["adb logcat -b events -v time>event_log_"+ date_time +".txt"], shell=True)
+            #os.popen("start cmd /c \"" + adb_device + " logcat -b events -v time > event_log_" + date_time + ".txt\"")
 
             # --pct-touch 18 --pct-motion 12 --pct-pinchzoom 2 --pct-trackball 0 --pct-nav 30 --pct-majornav 18 --pct-syskeys 2 --pct-appswitch 2 --pct-flip 1 --pct-anyevent 15 --throttle 50
             # os.popen(ADBDevice+" shell monkey --pkg-blacklist-file /data/blacklist.txt --pct-touch 0 --pct-trackball 0 --throttle 50 "+monkeySeed+" -v -v -v "+runTime+" > monkey_log_"+dateTime+".txt")
-            os.popen(
-                adb_device + " shell monkey --pkg-blacklist-file /data/blacklist.txt --pct-majornav 40 --pct-nav 30 --pct-syskeys 20 --throttle 50 --pct-appswitch 5 --pct-anyevent 5 " + monkey_seed + " -v -v -v " + str(
-                    run_time) + " > monkey_log_" + date_time + ".txt")
-
+            os.popen(adb_device + " push blacklist.txt /sdcard/blacklist.txt")
+            para = " shell monkey"
+            para += " --pkg-blacklist-file /sdcard/blacklist.txt"
+            para += " --pct-majornav 40 --pct-nav 30 --pct-syskeys 20 --throttle 50 --pct-appswitch 5 --pct-anyevent 5"
+            if monkey_seed != "":
+                para += " -s " + monkey_seed
+            para += " -v -v -v " + str(run_time)
+            para += " > monkey_log_" + date_time + ".txt"
+            os.popen(adb_device + para)
+            m.kill()
+            e.kill()
             # analyse monkey log, figure out error catagory and pull log to pc
             print("*****analyse monkey log*****")
+            if os.path.exists("monkey_log_" + date_time + ".txt")=="true":
+                log_file = open("monkey_log_" + date_time + ".txt")
+            else:
+                time.sleep(10)
+                log_file = open("monkey_log_" + date_time + ".txt")
+                for line in log_file:
+                    if not line.find('seed=') == -1:
+                        # print line.find('seed=')
+                        random_seed = line[line.find('seed=') + len('seed='):line.find(' count=')]
 
-            log_file = open("monkey_log_" + date_time + ".txt")
-            for line in log_file:
-                if not line.find('seed=') == -1:
-                    # print line.find('seed=')
-                    random_seed = line[line.find('seed=') + len('seed='):line.find(' count=')]
-
-                if not line.find('Events injected: ') == -1:
-                    # print line.find('Events injected: ')
-                    event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
-
-            log_file.close()
+                    if not line.find('Events injected: ') == -1:
+                        # print line.find('Events injected: ')
+                        event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
+                log_file.close()
+            #log_file = open("monkey_log_" + date_time + ".txt")
+            # for line in log_file:
+            #     if not line.find('seed=') == -1:
+            #         # print line.find('seed=')
+            #         random_seed = line[line.find('seed=') + len('seed='):line.find(' count=')]
+            #
+            #     if not line.find('Events injected: ') == -1:
+            #         # print line.find('Events injected: ')
+            #         event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
+            #
+            # log_file.close()
 
             if 'event_count' not in dir():
                 event_count = 0
@@ -354,3 +458,4 @@ if __name__ == "__main__":
             if 'error_info' not in dir():
                 log_path = normal_cat()
                 move_monkey_log(log_path)
+                pull_log_and_move(log_path)
