@@ -1,8 +1,0 @@
-XOS SN :0123456789 
-Build: GEXNE/rkpx2/rkpx2:4.4.2/CE1607/eng..20170516.075605:eng/test-keys
-Hardware: rk30sdk
-Revision: 0
-Bootloader: fastboot
-Radio: unknown
-Kernel: Linux version 3.0.36+ (root@android) (gcc version 4.6.x-google 20120106 (prerelease) (GCC) ) #1 SMP PREEMPT Fri May 26 10:40:21 UTC 2017
-
