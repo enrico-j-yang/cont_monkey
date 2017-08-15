@@ -1,10 +1,10 @@
 import datetime
 import os
-import zipfile
-import shutil
-import time
-import subprocess
 import re
+import shutil
+import subprocess
+import time
+import zipfile
 from optparse import OptionParser
 
 
@@ -158,19 +158,19 @@ def pull_log_and_move(log_path):
     except OSError:
         print("log exists")
 
-    #os.popen("cp -f *_anr* *_crash* log/")
-    for root, dirs,files in os.walk("dropbox"):
+    # os.popen("cp -f *_anr* *_crash* log/")
+    for root, dirs, files in os.walk("dropbox"):
         for file in files:
-            matchObj = re.search(r'_crash', file, re.M | re.I)
-            matchObj1 = re.search(r'_anr', file, re.M | re.I)
-            if matchObj or matchObj1:
+            match_crash_obj = re.search(r'_crash', file, re.M | re.I)
+            match_anr_obj = re.search(r'_anr', file, re.M | re.I)
+            if match_anr_obj or match_crash_obj:
                 print(file)
-                shutil.move(file, log_path+"log")
-            #os.popen("rm *@*")
+                shutil.move(file, log_path + "log")
+                # os.popen("rm *@*")
         os.remove("*@*")
-        #os.popen("cp -f log/* .")
+        # os.popen("cp -f log/* .")
         shutil.copy("log/*", log_path)
-        #os.popen("rm -rf log")
+        # os.popen("rm -rf log")
         shutil.rmtree("log")
         os.popen("cd -")
         os.popen(adb_device + " pull /data/tombstones/ " + log_path)
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     device_sn = '0123456789'
     adb_device = "adb"
     run_time = 1
-    event_executed =0
+    event_executed = 0
 
     parser = OptionParser(usage="usage:%prog [optinos]\
     script will run 1 time if no arg found")
@@ -268,16 +268,18 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
 
+    data_time = None
+
     if options.logfile is not None:
         if options.logfile.find("monkey_log_") == 0:
             date_time = options.logfile[len("monkey_log_"):options.logfile.find(".txt")]
             print("dateTime:" + date_time)
 
-    if 'date_time' not in dir():
+    if data_time is None:
         run_time = options.runtime
         print("runTime:" + str(run_time))
 
-    if 'date_time' not in dir():
+    if data_time is None:
         device_sn = options.sn
         if device_sn is not None:
             print("deviceSN:" + device_sn)
@@ -286,12 +288,12 @@ if __name__ == "__main__":
             adb_device = "adb -s " + device_sn
             print("ADBDevice:" + adb_device)
 
-    if 'date_time' not in dir():
+    if data_time is None:
         if options.seed is not None:
             monkey_seed = "-s " + str(options.seed)
             print("monkeySeed:" + monkey_seed)
 
-    if 'date_time' in dir():
+    if data_time is not None:
         # process monkey log file only
         print("*****analyse monkey log*****")
 
@@ -349,20 +351,20 @@ if __name__ == "__main__":
         while event_executed < run_time:
             # set volume to 1 so as to prevent fm annoying sound
             for i in range(1, 10):
-                os.popen(adb_device + " shell input keyevent 25")
+                os.system(adb_device + " shell input keyevent 25")
 
-            os.popen(adb_device + " shell input keyevent 24")
+            os.system(adb_device + " shell input keyevent 24")
 
             # reboot devices for next run
             print("*****reboot device*****")
 
-            os.popen(adb_device + " kill-server")
-            # os.popen(ADBDevice+" reboot")
+            os.system(adb_device + " kill-server")
+            os.system(adb_device + " reboot")
             # wait for device connection
             print("*****wait for device*****")
 
-            os.popen(adb_device + " wait-for-device")
-            os.popen(adb_device + " push blacklist.txt /data/")
+            os.system(adb_device + " wait-for-device")
+            os.system(adb_device + " push blacklist.txt /data/")
             # run monkey with a random seed
             if 'monkeySeed' not in dir():
                 print("*****run monkey with a random seed*****")
@@ -375,14 +377,16 @@ if __name__ == "__main__":
             date_time = now.strftime("%Y%m%d-%H%M%S")
             print("dateTime:" + date_time)
 
-            #os.popen("start cmd /c \"" + adb_device + " logcat *:W > main_log_" + date_time + ".txt\"")
-            m = subprocess.Popen(["adb logcat *:W>main_log_"+ date_time +".txt"], shell=True)
-            e=subprocess.Popen(["adb logcat -b events -v time>event_log_"+ date_time +".txt"], shell=True)
-            #os.popen("start cmd /c \"" + adb_device + " logcat -b events -v time > event_log_" + date_time + ".txt\"")
+            # os.popen("start cmd /c \"" + adb_device + " logcat *:W > main_log_" + date_time + ".txt\"")
+            m = subprocess.Popen(["adb logcat *:W>main_log_" + date_time + ".txt"], shell=True)
+            e = subprocess.Popen(["adb logcat -b events -v time>event_log_" + date_time + ".txt"], shell=True)
+            # os.popen("start cmd /c \"" + adb_device + " logcat -b events -v time > event_log_" + date_time + ".txt\"")
 
-            # --pct-touch 18 --pct-motion 12 --pct-pinchzoom 2 --pct-trackball 0 --pct-nav 30 --pct-majornav 18 --pct-syskeys 2 --pct-appswitch 2 --pct-flip 1 --pct-anyevent 15 --throttle 50
-            # os.popen(ADBDevice+" shell monkey --pkg-blacklist-file /data/blacklist.txt --pct-touch 0 --pct-trackball 0 --throttle 50 "+monkeySeed+" -v -v -v "+runTime+" > monkey_log_"+dateTime+".txt")
-            os.popen(adb_device + " push blacklist.txt /sdcard/blacklist.txt")
+            # --pct-touch 18 --pct-motion 12 --pct-pinchzoom 2 --pct-trackball 0 --pct-nav 30 --pct-majornav 18
+            # --pct-syskeys 2 --pct-appswitch 2 --pct-flip 1 --pct-anyevent 15 --throttle 50
+            # os.system(ADBDevice+" shell monkey --pkg-blacklist-file /data/blacklist.txt --pct-touch 0
+            # --pct-trackball 0 --throttle 50 "+monkeySeed+" -v -v -v "+runTime+" > monkey_log_"+dateTime+".txt")
+            os.system(adb_device + " push blacklist.txt /sdcard/blacklist.txt")
             para = " shell monkey"
             para += " --pkg-blacklist-file /sdcard/blacklist.txt"
             para += " --pct-majornav 40 --pct-nav 30 --pct-syskeys 20 --throttle 50 --pct-appswitch 5 --pct-anyevent 5"
@@ -390,12 +394,12 @@ if __name__ == "__main__":
                 para += " -s " + monkey_seed
             para += " -v -v -v " + str(run_time)
             para += " > monkey_log_" + date_time + ".txt"
-            os.popen(adb_device + para)
+            os.system(adb_device + para)
             m.kill()
             e.kill()
             # analyse monkey log, figure out error catagory and pull log to pc
             print("*****analyse monkey log*****")
-            if os.path.exists("monkey_log_" + date_time + ".txt")=="true":
+            if os.path.exists("monkey_log_" + date_time + ".txt") == "true":
                 log_file = open("monkey_log_" + date_time + ".txt")
             else:
                 time.sleep(10)
@@ -409,7 +413,7 @@ if __name__ == "__main__":
                         # print line.find('Events injected: ')
                         event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
                 log_file.close()
-            #log_file = open("monkey_log_" + date_time + ".txt")
+            # log_file = open("monkey_log_" + date_time + ".txt")
             # for line in log_file:
             #     if not line.find('seed=') == -1:
             #         # print line.find('seed=')
@@ -426,7 +430,7 @@ if __name__ == "__main__":
                 log_path = unknown_cat()
                 move_monkey_log(log_path)
                 pull_log_and_move(log_path)
-                os.popen(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
+                os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
                 dump_state_and_move(log_path)
 
             print('random seed:' + str(random_seed))
@@ -443,7 +447,7 @@ if __name__ == "__main__":
                     log_path = anr_cat(error_info)
                     move_monkey_log(log_path)
                     pull_log_and_move(log_path)
-                    os.popen(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
+                    os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
                     dump_state_and_move(log_path)
 
                 if not line.find('CRASH:') == -1:
@@ -451,7 +455,7 @@ if __name__ == "__main__":
                     log_path = crash_cat(error_info)
                     move_monkey_log(log_path)
                     pull_log_and_move(log_path)
-                    os.popen(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
+                    os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
                     dump_state_and_move(log_path)
             log_file.close()
 
