@@ -1,10 +1,10 @@
 import datetime
 import os
-import re
 import shutil
 import subprocess
 import time
 import zipfile
+from glob import glob
 from optparse import OptionParser
 
 
@@ -150,34 +150,41 @@ def move_monkey_log(log_path):
 
 def pull_log_and_move(log_path):
     print("*****pullLogAndMove*****")
-
-    os.popen(adb_device + " pull /data/system/dropbox/ " + log_path)
-    os.popen("cd " + log_path)
+    os.system(adb_device + " pull /data/system/dropbox/ " + log_path)
+    os.chdir(log_path + "dropbox/")
     try:
         os.makedirs("log")
     except OSError:
         print("log exists")
 
     # os.popen("cp -f *_anr* *_crash* log/")
-    for root, dirs, files in os.walk("dropbox"):
-        for file in files:
-            match_crash_obj = re.search(r'_crash', file, re.M | re.I)
-            match_anr_obj = re.search(r'_anr', file, re.M | re.I)
-            if match_anr_obj or match_crash_obj:
-                print(file)
-                shutil.move(file, log_path + "log")
-                # os.popen("rm *@*")
-        os.remove("*@*")
-        # os.popen("cp -f log/* .")
-        shutil.copy("log/*", log_path)
-        # os.popen("rm -rf log")
-        shutil.rmtree("log")
-        os.popen("cd -")
-        os.popen(adb_device + " pull /data/tombstones/ " + log_path)
-        os.popen(adb_device + " shell rm -f /data/tombstones/*")
-        os.popen(adb_device + " shell rm -f /data/system/dropbox/*")
-        os.popen(adb_device + " shell /system/bin/screencap -p /sdcard/screenshot.png")
-        os.popen(adb_device + " pull /sdcard/screenshot.png " + log_path)
+    for filename in glob("*_anr*"):
+        shutil.move(filename, "log/")
+
+    for filename in glob("*_crash*"):
+        shutil.move(filename, "log/")
+    # for root, dirs, files in os.walk(log_path + "dropbox"):
+    #    for file in files:
+    #        match_crash_obj = re.search(r'_crash', file, re.M | re.I)
+    #        match_anr_obj = re.search(r'_anr', file, re.M | re.I)
+    #        if match_anr_obj or match_crash_obj:
+    #            print(file)
+    #            shutil.move(file, log_path + "log")
+
+    # os.popen("rm *@*")
+    for filename in glob("*@*"):
+        os.remove(filename)
+    # os.popen("cp -f log/* .")
+    for filename in glob("log/*"):
+        shutil.copy(filename, "./")
+    # os.popen("rm -rf log")
+    shutil.rmtree("log")
+    os.chdir("../..")
+    os.system(adb_device + " pull /data/tombstones/ " + log_path)
+    os.system(adb_device + " shell rm -f /data/tombstones/*")
+    os.system(adb_device + " shell rm -f /data/system/dropbox/*")
+    os.system(adb_device + " shell /system/bin/screencap -p /sdcard/screenshot.png")
+    os.system(adb_device + " pull /sdcard/screenshot.png " + log_path)
 
     file_size = os.path.getsize("main_log_" + date_time + ".txt")
     if file_size > 10 * 1024 * 1024:
@@ -212,7 +219,7 @@ def dump_state_and_move(log_path):
 
     file_size = os.path.getsize("dumpstate_" + date_time + ".txt")
     if file_size > 10 * 1024 * 1024:
-        # os.popen("zip dumpstate_" + date_time + ".zip dumpstate_" + date_time + ".txt")
+        # os.system("zip dumpstate_" + date_time + ".zip dumpstate_" + date_time + ".txt")
         f = zipfile.ZipFile("dumpstate_" + date_time + ".zip", 'w', zipfile.ZIP_DEFLATED)
         f.write("dumpstate_" + date_time + ".txt")
         f.close()
@@ -231,6 +238,8 @@ if __name__ == "__main__":
     adb_device = "adb"
     run_time = 1
     event_executed = 0
+    data_time = None
+    random_seed = None
 
     parser = OptionParser(usage="usage:%prog [optinos]\
     script will run 1 time if no arg found")
@@ -267,8 +276,6 @@ if __name__ == "__main__":
                       )
 
     (options, args) = parser.parse_args()
-
-    data_time = None
 
     if options.logfile is not None:
         if options.logfile.find("monkey_log_") == 0:
@@ -349,12 +356,6 @@ if __name__ == "__main__":
             exit(-1)
 
         while event_executed < run_time:
-            # set volume to 1 so as to prevent fm annoying sound
-            for i in range(1, 10):
-                os.system(adb_device + " shell input keyevent 25")
-
-            os.system(adb_device + " shell input keyevent 24")
-
             # reboot devices for next run
             print("*****reboot device*****")
 
@@ -386,7 +387,7 @@ if __name__ == "__main__":
             # --pct-syskeys 2 --pct-appswitch 2 --pct-flip 1 --pct-anyevent 15 --throttle 50
             # os.system(ADBDevice+" shell monkey --pkg-blacklist-file /data/blacklist.txt --pct-touch 0
             # --pct-trackball 0 --throttle 50 "+monkeySeed+" -v -v -v "+runTime+" > monkey_log_"+dateTime+".txt")
-            os.system(adb_device + " push blacklist.txt /sdcard/blacklist.txt")
+
             para = " shell monkey"
             para += " --pkg-blacklist-file /sdcard/blacklist.txt"
             para += " --pct-majornav 40 --pct-nav 30 --pct-syskeys 20 --throttle 50 --pct-appswitch 5 --pct-anyevent 5"
@@ -438,7 +439,7 @@ if __name__ == "__main__":
             print('event count:' + str(event_count))
 
             event_executed = event_executed + event_count
-            print('event exercuted:' + str(event_executed))
+            print('event executed:' + str(event_executed))
 
             log_file = open("monkey_log_" + date_time + ".txt")
             for line in log_file:
