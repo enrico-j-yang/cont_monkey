@@ -1,12 +1,14 @@
 import datetime
 import os
-import psutil
+import platform
 import shutil
 import subprocess
 import time
 import zipfile
 from glob import glob
 from optparse import OptionParser
+
+import psutil
 
 
 def normal_cat():
@@ -380,11 +382,20 @@ if __name__ == "__main__":
             date_time = now.strftime("%Y%m%d-%H%M%S")
             print("dateTime:" + date_time)
 
-            # os.popen("start cmd /c \"" + adb_device + " logcat *:W > main_log_" + date_time + ".txt\"")
-            m = subprocess.Popen([adb_device, "logcat", "*:W>main_log_" + date_time + ".txt"], shell=True)
-            e = subprocess.Popen([adb_device, "logcat", "-b", "events", "-v", "time>event_log_" + date_time + ".txt"],
-                                 shell=True)
-            # os.popen("start cmd /c \"" + adb_device + " logcat -b events -v time > event_log_" + date_time + ".txt\"")
+            m = None
+            e = None
+            main_log_cmd = adb_device + " logcat *:W>main_log_" + date_time + ".txt"
+            event_log_cmd = adb_device + " logcat -b events -v time>event_log_" + date_time + ".txt"
+            if platform.system() == "Windows":
+                main_log_cmd_list = main_log_cmd.split()
+                print(main_log_cmd_list)
+                m = subprocess.Popen(main_log_cmd_list, shell=True)
+                event_log_cmd_list = event_log_cmd.split()
+                print(event_log_cmd_list)
+                e = subprocess.Popen(event_log_cmd_list, shell=True)
+            elif platform.system() == "Darwin":
+                m = subprocess.Popen(main_log_cmd, shell=True)
+                e = subprocess.Popen(event_log_cmd, shell=True)
 
             # --pct-touch 18 --pct-motion 12 --pct-pinchzoom 2 --pct-trackball 0 --pct-nav 30 --pct-majornav 18
             # --pct-syskeys 2 --pct-appswitch 2 --pct-flip 1 --pct-anyevent 15 --throttle 50
@@ -402,9 +413,7 @@ if __name__ == "__main__":
             m.kill()
             e.kill()
             for proc in psutil.process_iter():
-                print(proc.name())
                 if proc.name() == 'adb.exe' or proc.name() == 'adb':
-                    print("kill adb")
                     proc.kill()
 
             # analyse monkey log, figure out error catagory and pull log to pc
