@@ -1,5 +1,6 @@
 import datetime
 import os
+import psutil
 import shutil
 import subprocess
 import time
@@ -151,6 +152,7 @@ def move_monkey_log(log_path):
 def pull_log_and_move(log_path):
     print("*****pullLogAndMove*****")
     os.system(adb_device + " pull /data/system/dropbox/ " + log_path)
+    cur_path = os.getcwd()
     os.chdir(log_path + "dropbox/")
     try:
         os.makedirs("log")
@@ -179,7 +181,7 @@ def pull_log_and_move(log_path):
         shutil.copy(filename, "./")
     # os.popen("rm -rf log")
     shutil.rmtree("log")
-    os.chdir("../..")
+    os.chdir(cur_path)
     os.system(adb_device + " pull /data/tombstones/ " + log_path)
     os.system(adb_device + " shell rm -f /data/tombstones/*")
     os.system(adb_device + " shell rm -f /data/system/dropbox/*")
@@ -379,8 +381,9 @@ if __name__ == "__main__":
             print("dateTime:" + date_time)
 
             # os.popen("start cmd /c \"" + adb_device + " logcat *:W > main_log_" + date_time + ".txt\"")
-            m = subprocess.Popen(["adb logcat *:W>main_log_" + date_time + ".txt"], shell=True)
-            e = subprocess.Popen(["adb logcat -b events -v time>event_log_" + date_time + ".txt"], shell=True)
+            m = subprocess.Popen([adb_device, "logcat", "*:W>main_log_" + date_time + ".txt"], shell=True)
+            e = subprocess.Popen([adb_device, "logcat", "-b", "events", "-v", "time>event_log_" + date_time + ".txt"],
+                                 shell=True)
             # os.popen("start cmd /c \"" + adb_device + " logcat -b events -v time > event_log_" + date_time + ".txt\"")
 
             # --pct-touch 18 --pct-motion 12 --pct-pinchzoom 2 --pct-trackball 0 --pct-nav 30 --pct-majornav 18
@@ -398,6 +401,12 @@ if __name__ == "__main__":
             os.system(adb_device + para)
             m.kill()
             e.kill()
+            for proc in psutil.process_iter():
+                print(proc.name())
+                if proc.name() == 'adb.exe' or proc.name() == 'adb':
+                    print("kill adb")
+                    proc.kill()
+
             # analyse monkey log, figure out error catagory and pull log to pc
             print("*****analyse monkey log*****")
             if os.path.exists("monkey_log_" + date_time + ".txt") == "true":
