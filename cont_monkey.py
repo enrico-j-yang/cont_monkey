@@ -388,10 +388,8 @@ if __name__ == "__main__":
             event_log_cmd = adb_device + " logcat -b events -v time>event_log_" + date_time + ".txt"
             if platform.system() == "Windows":
                 main_log_cmd_list = main_log_cmd.split()
-                print(main_log_cmd_list)
                 m = subprocess.Popen(main_log_cmd_list, shell=True)
                 event_log_cmd_list = event_log_cmd.split()
-                print(event_log_cmd_list)
                 e = subprocess.Popen(event_log_cmd_list, shell=True)
             elif platform.system() == "Darwin":
                 m = subprocess.Popen(main_log_cmd, shell=True)
