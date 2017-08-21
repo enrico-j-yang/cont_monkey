@@ -364,12 +364,13 @@ if __name__ == "__main__":
             print("*****reboot device*****")
 
             os.system(adb_device + " kill-server")
+            os.system(adb_device + " devices")
             os.system(adb_device + " reboot")
             # wait for device connection
             print("*****wait for device*****")
 
             os.system(adb_device + " wait-for-device")
-            os.system(adb_device + " push blacklist.txt /data/")
+            os.system(adb_device + " push blacklist.txt /sdcard/")
             # run monkey with a random seed
             if 'monkeySeed' not in dir():
                 print("*****run monkey with a random seed*****")
