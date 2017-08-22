@@ -248,6 +248,7 @@ if __name__ == "__main__":
     adb_device = "adb"
     run_time = 1
     event_executed = 0
+    event_count = 0
     data_time = None
     random_seed = None
 
@@ -418,10 +419,6 @@ if __name__ == "__main__":
             para += " -v -v -v " + str(run_time)
             para += " > monkey_log_" + date_time + ".txt"
             ret = os.system(adb_device + para)
-            m.send_signal(signal.SIGKILL)
-            e.send_signal(signal.SIGKILL)
-            m.wait(5)
-            e.wait(5)
             m.kill()
             e.kill()
             for proc in psutil.process_iter():
@@ -479,11 +476,11 @@ if __name__ == "__main__":
                 pull_log_and_move(log_path)
                 if os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt") == 0:
                     dump_state_and_move(log_path)
+            else:
+                event_executed = event_executed + event_count
+                print('event executed:' + str(event_executed))
 
-            event_executed = event_executed + event_count
-            print('event executed:' + str(event_executed))
-
-            if 'error_info' not in dir():
-                log_path = normal_cat()
-                move_monkey_log(log_path)
-                pull_log_and_move(log_path)
+                if 'error_info' not in dir():
+                    log_path = normal_cat()
+                    move_monkey_log(log_path)
+                    pull_log_and_move(log_path)
