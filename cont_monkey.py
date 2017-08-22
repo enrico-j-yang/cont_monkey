@@ -2,6 +2,7 @@ import datetime
 import os
 import platform
 import shutil
+import signal
 import subprocess
 import time
 import zipfile
@@ -153,42 +154,47 @@ def move_monkey_log(log_path):
 
 def pull_log_and_move(log_path):
     print("*****pullLogAndMove*****")
-    os.system(adb_device + " pull /data/system/dropbox/ " + log_path)
-    cur_path = os.getcwd()
-    os.chdir(log_path + "dropbox/")
-    try:
-        os.makedirs("log")
-    except OSError:
-        print("log exists")
+    if os.system(adb_device + " pull /data/system/dropbox/ " + log_path) == 0:
+        cur_path = os.getcwd()
+        os.chdir(log_path + "dropbox/")
+        try:
+            os.makedirs("log")
+        except OSError:
+            print("log exists")
 
-    # os.popen("cp -f *_anr* *_crash* log/")
-    for filename in glob("*_anr*"):
-        shutil.move(filename, "log/")
+        # os.popen("cp -f *_anr* *_crash* log/")
+        for filename in glob("*_anr*"):
+            shutil.move(filename, "log/")
 
-    for filename in glob("*_crash*"):
-        shutil.move(filename, "log/")
-    # for root, dirs, files in os.walk(log_path + "dropbox"):
-    #    for file in files:
-    #        match_crash_obj = re.search(r'_crash', file, re.M | re.I)
-    #        match_anr_obj = re.search(r'_anr', file, re.M | re.I)
-    #        if match_anr_obj or match_crash_obj:
-    #            print(file)
-    #            shutil.move(file, log_path + "log")
+        for filename in glob("*_crash*"):
+            shutil.move(filename, "log/")
+        # for root, dirs, files in os.walk(log_path + "dropbox"):
+        #    for file in files:
+        #        match_crash_obj = re.search(r'_crash', file, re.M | re.I)
+        #        match_anr_obj = re.search(r'_anr', file, re.M | re.I)
+        #        if match_anr_obj or match_crash_obj:
+        #            print(file)
+        #            shutil.move(file, log_path + "log")
 
-    # os.popen("rm *@*")
-    for filename in glob("*@*"):
-        os.remove(filename)
-    # os.popen("cp -f log/* .")
-    for filename in glob("log/*"):
-        shutil.copy(filename, "./")
-    # os.popen("rm -rf log")
-    shutil.rmtree("log")
-    os.chdir(cur_path)
-    os.system(adb_device + " pull /data/tombstones/ " + log_path)
-    os.system(adb_device + " shell rm -f /data/tombstones/*")
-    os.system(adb_device + " shell rm -f /data/system/dropbox/*")
-    os.system(adb_device + " shell /system/bin/screencap -p /sdcard/screenshot.png")
-    os.system(adb_device + " pull /sdcard/screenshot.png " + log_path)
+        # os.popen("rm *@*")
+        for filename in glob("*@*"):
+            os.remove(filename)
+        # os.popen("cp -f log/* .")
+        for filename in glob("log/*"):
+            shutil.copy(filename, "./")
+        # os.popen("rm -rf log")
+        shutil.rmtree("log")
+        os.chdir(cur_path)
+        if os.system(adb_device + " shell rm -f /data/system/dropbox/*") != 0:
+            print("delete /data/system/dropbox/* error")
+    if os.system(adb_device + " pull /data/tombstones/ " + log_path) == 0:
+        os.system(adb_device + " shell rm -f /data/tombstones/*")
+
+    if os.system(adb_device + " shell /system/bin/screencap -p /sdcard/screenshot.png") == 0:
+        if os.system(adb_device + " pull /sdcard/screenshot.png " + log_path) != 0:
+            print("get screen shot error")
+    else:
+        print("get screen shot error")
 
     file_size = os.path.getsize("main_log_" + date_time + ".txt")
     if file_size > 10 * 1024 * 1024:
@@ -395,6 +401,9 @@ if __name__ == "__main__":
             elif platform.system() == "Darwin":
                 m = subprocess.Popen(main_log_cmd, shell=True)
                 e = subprocess.Popen(event_log_cmd, shell=True)
+            else:
+                print("Platform " + platform.system() + " not supported")
+                exit(-1)
 
             # --pct-touch 18 --pct-motion 12 --pct-pinchzoom 2 --pct-trackball 0 --pct-nav 30 --pct-majornav 18
             # --pct-syskeys 2 --pct-appswitch 2 --pct-flip 1 --pct-anyevent 15 --throttle 50
@@ -408,7 +417,11 @@ if __name__ == "__main__":
                 para += " -s " + monkey_seed
             para += " -v -v -v " + str(run_time)
             para += " > monkey_log_" + date_time + ".txt"
-            os.system(adb_device + para)
+            ret = os.system(adb_device + para)
+            m.send_signal(signal.SIGKILL)
+            e.send_signal(signal.SIGKILL)
+            m.wait(5)
+            e.wait(5)
             m.kill()
             e.kill()
             for proc in psutil.process_iter():
@@ -417,65 +430,58 @@ if __name__ == "__main__":
 
             # analyse monkey log, figure out error catagory and pull log to pc
             print("*****analyse monkey log*****")
-            if os.path.exists("monkey_log_" + date_time + ".txt") == "true":
-                log_file = open("monkey_log_" + date_time + ".txt")
-            else:
-                time.sleep(10)
+            time_out = 5
+            start_time = time.time()
+            current_time = time.time()
+            time_out_flag = False
+            if current_time - start_time > time_out:
+                time_out_flag = True
+            while not os.path.exists("monkey_log_" + date_time + ".txt") and not time_out_flag:
+                time.sleep(1)
+                current_time = time.time()
+                if current_time - start_time > time_out:
+                    time_out_flag = True
+
+            if not time_out_flag:
                 log_file = open("monkey_log_" + date_time + ".txt")
                 for line in log_file:
                     if not line.find('seed=') == -1:
                         # print line.find('seed=')
                         random_seed = line[line.find('seed=') + len('seed='):line.find(' count=')]
+                        print('random seed:' + str(random_seed))
 
                     if not line.find('Events injected: ') == -1:
                         # print line.find('Events injected: ')
                         event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
+                        print('event count:' + str(event_count))
+
+                    if not line.find('ANR in') == -1:
+                        error_info = line[line.find('ANR in') + len('ANR in'):len(line)]
+                        log_path = anr_cat(error_info)
+                        move_monkey_log(log_path)
+                        pull_log_and_move(log_path)
+                        if os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt") == 0:
+                            dump_state_and_move(log_path)
+
+                    if not line.find('CRASH:') == -1:
+                        error_info = line[line.find('CRASH: ') + len('CRASH: '):line.find(' (')]
+                        log_path = crash_cat(error_info)
+                        move_monkey_log(log_path)
+                        pull_log_and_move(log_path)
+                        if os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt") == 0:
+                            dump_state_and_move(log_path)
                 log_file.close()
-            # log_file = open("monkey_log_" + date_time + ".txt")
-            # for line in log_file:
-            #     if not line.find('seed=') == -1:
-            #         # print line.find('seed=')
-            #         random_seed = line[line.find('seed=') + len('seed='):line.find(' count=')]
-            #
-            #     if not line.find('Events injected: ') == -1:
-            #         # print line.find('Events injected: ')
-            #         event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
-            #
-            # log_file.close()
 
             if 'event_count' not in dir():
                 event_count = 0
                 log_path = unknown_cat()
                 move_monkey_log(log_path)
                 pull_log_and_move(log_path)
-                os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
-                dump_state_and_move(log_path)
-
-            print('random seed:' + str(random_seed))
-
-            print('event count:' + str(event_count))
+                if os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt") == 0:
+                    dump_state_and_move(log_path)
 
             event_executed = event_executed + event_count
             print('event executed:' + str(event_executed))
-
-            log_file = open("monkey_log_" + date_time + ".txt")
-            for line in log_file:
-                if not line.find('ANR in') == -1:
-                    error_info = line[line.find('ANR in') + len('ANR in'):len(line)]
-                    log_path = anr_cat(error_info)
-                    move_monkey_log(log_path)
-                    pull_log_and_move(log_path)
-                    os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
-                    dump_state_and_move(log_path)
-
-                if not line.find('CRASH:') == -1:
-                    error_info = line[line.find('CRASH: ') + len('CRASH: '):line.find(' (')]
-                    log_path = crash_cat(error_info)
-                    move_monkey_log(log_path)
-                    pull_log_and_move(log_path)
-                    os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
-                    dump_state_and_move(log_path)
-            log_file.close()
 
             if 'error_info' not in dir():
                 log_path = normal_cat()
