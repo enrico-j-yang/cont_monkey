@@ -484,7 +484,7 @@ if __name__ == "__main__":
                         error_info = line[line.find('CRASH: ') + len('CRASH: '):line.find(' (')]
                 log_file.close()
 
-            if error_info is None:
+            if event_count == run_time:
                 log_path = normal_cat()
                 move_monkey_log(log_path)
                 pull_log_and_move(log_path)
@@ -493,12 +493,8 @@ if __name__ == "__main__":
                     log_path = anr_cat(error_info)
                 elif error_type is "CRASH":
                     log_path = crash_cat(error_info)
-                elif event_count == 0:
-                    log_path = unknown_cat()
                 else:
-                    log_path = ""
-                    print("log path error")
-                    exit(1)
+                    log_path = unknown_cat()
 
                 move_monkey_log(log_path)
                 pull_log_and_move(log_path)
@@ -506,4 +502,7 @@ if __name__ == "__main__":
                     dump_state_and_move(log_path)
 
             event_executed = event_executed + event_count
-            print('event executed:' + str(event_executed))
+            if event_count < run_time:
+                print('event executed:' + str(event_executed))
+            else:
+                print('event executed:' + str(event_count))
