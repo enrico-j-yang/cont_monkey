@@ -248,7 +248,7 @@ if __name__ == "__main__":
     run_time = 1
     event_executed = 0
     event_count = 0
-    data_time = None
+    date_time = None
     random_seed = None
 
     parser = OptionParser(usage="usage:%prog [optinos]\
@@ -292,11 +292,11 @@ if __name__ == "__main__":
             date_time = options.logfile[len("monkey_log_"):options.logfile.find(".txt")]
             print("dateTime:" + date_time)
 
-    if data_time is None:
+    if date_time is None:
         run_time = options.runtime
         print("runTime:" + str(run_time))
 
-    if data_time is None:
+    if date_time is None:
         device_sn = options.sn
         if device_sn is not None:
             print("deviceSN:" + device_sn)
@@ -305,12 +305,12 @@ if __name__ == "__main__":
             adb_device = "adb -s " + device_sn
             print("ADBDevice:" + adb_device)
 
-    if data_time is None:
+    if date_time is None:
         if options.seed is not None:
             monkey_seed = "-s " + str(options.seed)
             print("monkeySeed:" + monkey_seed)
 
-    if data_time is not None:
+    if date_time is not None:
         # process monkey log file only
         print("*****analyse monkey log*****")
 
@@ -323,11 +323,6 @@ if __name__ == "__main__":
                 random_seed = line[line.find('seed=') + len('seed='):line.find(' count=')]
                 print('random seed:' + str(random_seed))
 
-            if not line.find('Events injected: ') == -1:
-                # print line.find('Events injected: ')
-                event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
-                print('event count:' + str(event_count))
-
             if not line.find('ANR in') == -1:
                 error_type = "ANR"
                 error_info = line[line.find('ANR in') + len('ANR in'):len(line)]
@@ -335,6 +330,12 @@ if __name__ == "__main__":
             if not line.find('CRASH:') == -1:
                 error_type = "CRASH"
                 error_info = line[line.find('CRASH: ') + len('CRASH: '):line.find(' (')]
+
+            if not line.find('Events injected: ') == -1:
+                # print line.find('Events injected: ')
+                event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
+                print('event count:' + str(event_count))
+
         log_file.close()
 
         if error_info is None:
@@ -416,14 +417,29 @@ if __name__ == "__main__":
             if monkey_seed != "":
                 para += " -s " + monkey_seed
             para += " -v -v -v " + str(run_time)
-            para += " > monkey_log_" + date_time + ".txt"
+            # para += " > monkey_log_" + date_time + ".txt"
 
-            if platform.system() == "Windows":
-                monkey_log_cmd_list = para.split()
-                monkey_log_cmd_list[0:0] = [adb_device]
-                monkey_log_process = subprocess.call(monkey_log_cmd_list, shell=True)
-            else:
-                monkey_log_process = subprocess.call(adb_device + para, shell=True)
+            with open("monkey_log_" + date_time + ".txt", 'w') as f:
+                if platform.system() == "Windows":
+                    monkey_log_cmd_list = para.split()
+                    monkey_log_cmd_list[0:0] = [adb_device]
+                    monkey_log_process = subprocess.Popen(monkey_log_cmd_list, shell=True, stdout=subprocess.PIPE)
+                else:
+                    monkey_log_process = subprocess.Popen(adb_device + para, shell=True, stdout=subprocess.PIPE)
+
+                # display progress
+                from tqdm import tqdm
+
+                with tqdm(total=run_time) as pbar:
+                    pbar.update(event_executed)
+                    for line in iter(monkey_log_process.stdout.readline, b''):
+                        if not (line.decode("utf-8")).find(":S") == -1:
+                            event_count += 1
+
+                            if event_count <= run_time:  # near the end
+                                pbar.update(1)
+                        f.write(line.decode("utf-8"))
+
             m.kill()
             e.kill()
             for proc in psutil.process_iter():
