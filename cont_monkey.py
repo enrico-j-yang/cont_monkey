@@ -2,7 +2,6 @@ import datetime
 import os
 import platform
 import shutil
-import signal
 import subprocess
 import time
 import zipfile
@@ -315,50 +314,48 @@ if __name__ == "__main__":
         # process monkey log file only
         print("*****analyse monkey log*****")
 
+        error_type = None
+        error_info = None
         log_file = open(options.logfile)
         for line in log_file:
             if not line.find('seed=') == -1:
                 # print line.find('seed=')
                 random_seed = line[line.find('seed=') + len('seed='):line.find(' count=')]
-                print('randomSeed:' + str(random_seed))
+                print('random seed:' + str(random_seed))
 
             if not line.find('Events injected: ') == -1:
                 # print line.find('Events injected: ')
                 event_count = int(line[line.find('Events injected: ') + len('Events injected: '):len(line)])
-                print('eventCount:' + str(event_count))
-                event_executed = event_executed + event_count
-                print('eventExecuted:' + str(event_executed))
+                print('event count:' + str(event_count))
 
-        log_file.close()
-
-        if 'event_count' not in dir():
-            event_count = 0
-            unknown_cat()
-
-        log_file = open("monkey_log_" + date_time + ".txt")
-        for line in log_file:
             if not line.find('ANR in') == -1:
+                error_type = "ANR"
                 error_info = line[line.find('ANR in') + len('ANR in'):len(line)]
-                print(error_info)
-                log_file.close()
-                log_path = anr_cat(error_info)
-                # log_file.close()
-                move_monkey_log(log_path)
-                break
 
             if not line.find('CRASH:') == -1:
+                error_type = "CRASH"
                 error_info = line[line.find('CRASH: ') + len('CRASH: '):line.find(' (')]
-                print(error_info)
-                log_file.close()
-                log_path = crash_cat(error_info)
-                print(log_path)
-                # log_file.close()
-                move_monkey_log(log_path)
-                break
+        log_file.close()
 
-        if 'error_info' not in dir():
+        if error_info is None:
             log_path = normal_cat()
             move_monkey_log(log_path)
+        else:
+            if error_type is "ANR":
+                log_path = anr_cat(error_info)
+            elif error_type is "CRASH":
+                log_path = crash_cat(error_info)
+            elif event_count == 0:
+                log_path = unknown_cat()
+            else:
+                log_path = ""
+                print("log path error")
+                exit(1)
+
+            move_monkey_log(log_path)
+
+        event_executed = event_executed + event_count
+        print('event executed:' + str(event_executed))
 
     else:
         # run monkey for specified events count
@@ -390,6 +387,7 @@ if __name__ == "__main__":
             date_time = now.strftime("%Y%m%d-%H%M%S")
             print("dateTime:" + date_time)
 
+            # run logcat in background to generate main log and event log
             m = None
             e = None
             main_log_cmd = adb_device + " logcat *:W>main_log_" + date_time + ".txt"
@@ -406,6 +404,7 @@ if __name__ == "__main__":
                 print("Platform " + platform.system() + " not supported")
                 exit(-1)
 
+            # run monkey with specified random seed and key event types distribution
             # --pct-touch 18 --pct-motion 12 --pct-pinchzoom 2 --pct-trackball 0 --pct-nav 30 --pct-majornav 18
             # --pct-syskeys 2 --pct-appswitch 2 --pct-flip 1 --pct-anyevent 15 --throttle 50
             # os.system(ADBDevice+" shell monkey --pkg-blacklist-file /data/blacklist.txt --pct-touch 0
@@ -418,14 +417,20 @@ if __name__ == "__main__":
                 para += " -s " + monkey_seed
             para += " -v -v -v " + str(run_time)
             para += " > monkey_log_" + date_time + ".txt"
-            ret = os.system(adb_device + para)
+
+            if platform.system() == "Windows":
+                monkey_log_cmd_list = para.split()
+                monkey_log_cmd_list[0:0] = [adb_device]
+                monkey_log_process = subprocess.call(monkey_log_cmd_list, shell=True)
+            else:
+                monkey_log_process = subprocess.call(adb_device + para, shell=True)
             m.kill()
             e.kill()
             for proc in psutil.process_iter():
                 if proc.name() == 'adb.exe' or proc.name() == 'adb':
                     proc.kill()
 
-            # analyse monkey log, figure out error catagory and pull log to pc
+            # analyse monkey log, figure out error category and pull log to pc
             print("*****analyse monkey log*****")
             time_out = 5
             start_time = time.time()
@@ -439,6 +444,8 @@ if __name__ == "__main__":
                 if current_time - start_time > time_out:
                     time_out_flag = True
 
+            error_type = None
+            error_info = None
             if not time_out_flag:
                 log_file = open("monkey_log_" + date_time + ".txt")
                 for line in log_file:
@@ -453,34 +460,34 @@ if __name__ == "__main__":
                         print('event count:' + str(event_count))
 
                     if not line.find('ANR in') == -1:
+                        error_type = "ANR"
                         error_info = line[line.find('ANR in') + len('ANR in'):len(line)]
-                        log_path = anr_cat(error_info)
-                        move_monkey_log(log_path)
-                        pull_log_and_move(log_path)
-                        if os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt") == 0:
-                            dump_state_and_move(log_path)
 
                     if not line.find('CRASH:') == -1:
+                        error_type = "CRASH"
                         error_info = line[line.find('CRASH: ') + len('CRASH: '):line.find(' (')]
-                        log_path = crash_cat(error_info)
-                        move_monkey_log(log_path)
-                        pull_log_and_move(log_path)
-                        if os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt") == 0:
-                            dump_state_and_move(log_path)
                 log_file.close()
 
-            if 'event_count' not in dir():
-                event_count = 0
-                log_path = unknown_cat()
+            if error_info is None:
+                log_path = normal_cat()
+                move_monkey_log(log_path)
+                pull_log_and_move(log_path)
+            else:
+                if error_type is "ANR":
+                    log_path = anr_cat(error_info)
+                elif error_type is "CRASH":
+                    log_path = crash_cat(error_info)
+                elif event_count == 0:
+                    log_path = unknown_cat()
+                else:
+                    log_path = ""
+                    print("log path error")
+                    exit(1)
+
                 move_monkey_log(log_path)
                 pull_log_and_move(log_path)
                 if os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt") == 0:
                     dump_state_and_move(log_path)
-            else:
-                event_executed = event_executed + event_count
-                print('event executed:' + str(event_executed))
 
-                if 'error_info' not in dir():
-                    log_path = normal_cat()
-                    move_monkey_log(log_path)
-                    pull_log_and_move(log_path)
+            event_executed = event_executed + event_count
+            print('event executed:' + str(event_executed))
