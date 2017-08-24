@@ -236,9 +236,11 @@ def dump_state_and_move(log_path):
         shutil.move("dumpstate_" + date_time + ".zip", log_path)
         # os.popen("rm dumpstate_" + date_time + ".txt")
         os.remove("dumpstate_" + date_time + ".txt")
-    else:
+    elif file_size > 0:
         # os.popen("mv dumpstate_" + date_time + ".txt " + log_path)
         shutil.move("dumpstate_" + date_time + ".txt", log_path)
+    else:
+        os.remove("dumpstate_" + date_time + ".txt")
 
 
 if __name__ == "__main__":
@@ -498,8 +500,8 @@ if __name__ == "__main__":
 
                 move_monkey_log(log_path)
                 pull_log_and_move(log_path)
-                if os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt") == 0:
-                    dump_state_and_move(log_path)
+                os.system(adb_device + " shell dumpstate > dumpstate_" + date_time + ".txt")
+                dump_state_and_move(log_path)
 
             event_executed = event_executed + event_count
             if event_count < run_time:
