@@ -377,6 +377,11 @@ if __name__ == "__main__":
             print("*****wait for device*****")
 
             os.system(adb_device + " wait-for-device")
+
+            # minimize volume to decrease annoying noise
+            for i in range(1, 10):
+                os.system(adb_device + " shell input keyevent 25")
+
             os.system(adb_device + " push blacklist.txt /sdcard/")
             # run monkey with a random seed
             if 'monkeySeed' not in dir():
